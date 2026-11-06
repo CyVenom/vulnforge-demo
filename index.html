@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VulnForge: a security scanner that asks permission first</title>
+<meta name="description" content="VulnForge is an async, plugin-extensible security scanner that checks you are allowed to scan, filters guesses by confidence, and tells you how to verify every finding. Interactive demo built from real scan output.">
+<meta property="og:title" content="VulnForge: a security scanner that asks permission first">
+<meta property="og:description" content="Authorization-first scanning, confidence-filtered findings and a verification playbook. Try the demo, built from real scan output.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://vulnforge-demo.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="VulnForge: a scanner that checks you're allowed to scan first, with a real scan result">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://vulnforge-demo.vercel.app/og.png">
+<meta name="theme-color" content="#f1f4f6">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#authorize">Skip to the demo</a>
+
+<div class="legal" role="note"><b>Authorized testing only.</b> Scanning systems you don't own or have written permission to test is illegal. This page runs no scans.</div>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="mark" href="#" aria-label="VulnForge home"><span class="glyph" aria-hidden="true">V</span>VulnForge</a>
+    <nav aria-label="Primary">
+      <a href="#authorize">Authorize</a>
+      <a href="#scan">Scan</a>
+      <a href="#findings">Findings</a>
+      <a href="#score">Score</a>
+      <a href="#reports">Reports</a>
+      <a class="gh" href="https://github.com/CyVenom/VulnForge" rel="noopener">GitHub &#8599;</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero wrap">
+  <div class="hero-copy">
+    <p class="eyebrow mono">Async &middot; plugin-extensible &middot; Python</p>
+    <h1>A scanner that checks you&rsquo;re <em>allowed</em> to scan first.</h1>
+    <p class="lede">VulnForge runs port, TLS, web and CVE checks in parallel, drops findings it isn&rsquo;t confident about, and tells you how to verify each one by hand. Below is the whole flow, replayed from real scan output.</p>
+    <div class="cta">
+      <a class="btn primary" href="#authorize">Walk through a scan</a>
+      <a class="btn" href="https://github.com/CyVenom/VulnForge" rel="noopener">View the code</a>
+    </div>
+    <p class="fine">The demo uses two real scans of a throwaway web server on the author&rsquo;s own machine. Nothing is simulated except where a note says so.</p>
+  </div>
+
+  <aside class="card summary" aria-label="A real scan result">
+    <div class="card-h mono"><span>Real result</span><span id="hsId"></span></div>
+    <div class="sum-top">
+      <div class="score"><b id="hsScore" class="mono"></b><span>risk / 100</span></div>
+      <div class="sum-meta mono"><span id="hsTarget"></span><span id="hsDur"></span></div>
+    </div>
+    <div class="bars" id="hsBars" aria-label="Findings by severity"></div>
+    <p class="note" id="hsNote"></p>
+  </aside>
+</section>
+
+<section class="flow wrap" aria-label="How a scan flows">
+  <ol class="pipe mono">
+    <li><span>1</span>Target</li>
+    <li><span>2</span>Authorization gate</li>
+    <li><span>3</span>Port &middot; TLS &middot; Web &middot; DNS &middot; plugins</li>
+    <li><span>4</span>CVE match</li>
+    <li><span>5</span>Confidence filter</li>
+    <li><span>6</span>Score &middot; report &middot; history</li>
+  </ol>
+</section>
+
+<section id="authorize" class="sec wrap" aria-labelledby="aH">
+  <div class="sec-l"><p class="num mono">01</p><h2 id="aH">Authorize</h2><p class="sub">Before any traffic, VulnForge works out what you actually pointed it at and refuses reserved ranges. It also asks you to confirm you have permission.</p></div>
+  <div class="sec-r">
+    <div class="card">
+      <label class="field"><span class="mono lbl">Target</span>
+        <input id="tgt" type="text" value="metadata.internal.test" spellcheck="false" autocomplete="off" aria-describedby="tgtHelp">
+      </label>
+      <div class="chips" id="tgtChips" aria-label="Example targets"></div>
+      <label class="check"><input type="checkbox" id="loop"><span>Also block loopback (<code>127.0.0.0/8</code>, <code>::1</code>) <span class="muted">&mdash; off in the default config</span></span></label>
+      <ol class="trace" id="trace" aria-live="polite"></ol>
+      <div class="verdict" id="verdict" aria-live="polite"></div>
+    </div>
+    <p class="foot" id="tgtHelp">Same logic as <code>core/target_guard.py</code>, ported to JavaScript. DNS here is a small sample table of made-up names; the real tool asks your OS resolver. A name is resolved once at check time, so this guards against mistakes, not DNS rebinding by a hostile resolver.</p>
+  </div>
+</section>
+
+<section id="scan" class="sec wrap" aria-labelledby="sH">
+  <div class="sec-l"><p class="num mono">02</p><h2 id="sH">Scan</h2><p class="sub">Modules run concurrently, so a scan takes about as long as its slowest check. Pick one of the two real scans and replay it.</p></div>
+  <div class="sec-r">
+    <div class="seg" role="tablist" aria-label="Recorded scan" id="scanSeg"></div>
+    <p class="scan-blurb" id="scanBlurb"></p>
+    <div class="term">
+      <div class="term-bar mono"><span id="termTitle">terminal</span><div class="term-act"><button class="btn sm primary" id="runBtn" type="button">Replay scan</button><button class="btn sm" id="skipBtn" type="button" hidden>Skip</button></div></div>
+      <pre class="term-body mono" id="termBody" aria-live="polite"></pre>
+    </div>
+    <p class="foot">A replay of recorded output with the waiting time compressed. The numbers (checks, findings, durations, score) come from the real reports.</p>
+  </div>
+</section>
+
+<section id="findings" class="sec wrap" aria-labelledby="fH">
+  <div class="sec-l"><p class="num mono">03</p><h2 id="fH">Findings</h2><p class="sub">Every finding carries a severity and a confidence. Click one to see the evidence, the fix, and how to check it yourself instead of trusting the tool.</p></div>
+  <div class="sec-r">
+    <div class="toolbar">
+      <div class="chips" id="sevChips" role="group" aria-label="Filter by severity"></div>
+      <input id="q" class="search" type="search" placeholder="Search findings" aria-label="Search findings">
+    </div>
+    <div class="explorer">
+      <ul class="flist" id="flist" aria-label="Findings"></ul>
+      <article class="fdetail" id="fdetail" aria-live="polite"></article>
+    </div>
+    <details class="conf">
+      <summary>What do the confidence levels mean?</summary>
+      <dl>
+        <div><dt class="mono">low</dt><dd>A hint, such as an unknown version or a version-only CVE list.</dd></div>
+        <div><dt class="mono">medium</dt><dd>Version match on distro-packaged software, where fixes are often backported.</dd></div>
+        <div><dt class="mono">high</dt><dd>A deterministic check: a header is absent, or content passed a validator.</dd></div>
+        <div><dt class="mono">confirmed</dt><dd>A tool actively reported the host as vulnerable.</dd></div>
+      </dl>
+      <p>CVE and nmap-script findings below <code>cve_matcher.min_confidence</code> (default <code>medium</code>) are dropped and counted as hidden, not shown as facts. In these two scans nothing was hidden.</p>
+    </details>
+  </div>
+</section>
+
+<section id="score" class="sec wrap" aria-labelledby="scH">
+  <div class="sec-l"><p class="num mono">04</p><h2 id="scH">Score</h2><p class="sub">A weighted sum of severities: critical 10, high 7, medium 4, low 1. Up to 50 it is exactly the sum. Above that, extra risk keeps counting with diminishing returns.</p></div>
+  <div class="sec-r">
+    <div class="card">
+      <div class="presets chips" id="presets" aria-label="Presets"></div>
+      <div class="sliders" id="sliders"></div>
+      <div class="gauge">
+        <div class="g-row"><span class="mono">Old (capped sum)</span><div class="track"><i id="gOld"></i></div><b class="mono" id="vOld"></b></div>
+        <div class="g-row"><span class="mono">Now (curve)</span><div class="track"><i id="gNew" class="new"></i><u class="mark40" title="CI threshold: 40"></u></div><b class="mono" id="vNew"></b></div>
+        <p class="g-note" id="gNote"></p>
+      </div>
+    </div>
+    <p class="foot">Same math as <code>core/risk.py</code>. The CLI exits with status 1 when the worst score in a run is 40 or more (the red-outlined tick on the bar), which is why scores up to 50 were left unchanged.</p>
+  </div>
+</section>
+
+<section id="reports" class="sec wrap" aria-labelledby="rH">
+  <div class="sec-l"><p class="num mono">05</p><h2 id="rH">Reports and history</h2><p class="sub">Each scan is saved, so you can compare runs and see whether a target is getting better or worse.</p></div>
+  <div class="sec-r">
+    <figure class="shot"><div class="shot-bar mono">reports/VF-20261106-205938.html</div><img src="assets/report.webp" alt="The HTML report VulnForge generated for the web scan: risk score 25, five medium and five low findings" width="1084" height="760" loading="lazy"><figcaption class="mono">The real HTML report from the web scan.</figcaption></figure>
+    <div class="two">
+      <div class="card">
+        <p class="card-t mono">Formats</p>
+        <ul class="fmt mono"><li>HTML</li><li>JSON</li><li>TXT</li><li>Markdown</li><li>SARIF</li><li>PDF</li></ul>
+        <p class="small">SARIF drops into GitHub code scanning. PDF needs the optional WeasyPrint dependency; every other format works without it.</p>
+      </div>
+      <div class="card">
+        <p class="card-t mono">Trend, from the two real scans</p>
+<pre class="code mono" aria-label="Trend output">http://127.0.0.1:8899/  risk 25 → 100  worsening  (2 scans)
+Scan ID              Risk   Findings
+VF-20261106-205938     25         10
+VF-20261106-205952    100         69</pre>
+        <p class="small">The second scan scores higher because it looked at a different layer: the port scan read the server banner and matched CVEs. That is a different scan, not a regression, which is what <code>diff</code> is for.</p>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-t mono">Other commands</p>
+      <dl class="cmds">
+        <div><dt class="mono">history</dt><dd>List past scans for a target.</dd></div>
+        <div><dt class="mono">diff A B</dt><dd>New and resolved findings between two scans.</dd></div>
+        <div><dt class="mono">verify ID</dt><dd>A manual verification playbook per finding category.</dd></div>
+        <div><dt class="mono">audit</dt><dd>Every authorization confirm, decline and blocked target.</dd></div>
+        <div><dt class="mono">schedule</dt><dd>Recurring scans from <code>config.json</code>.</dd></div>
+        <div><dt class="mono">serve</dt><dd>A token-protected REST API, localhost only by default.</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="sec wrap" aria-labelledby="sfH">
+  <div class="sec-l"><p class="num mono">06</p><h2 id="sfH">Built to be careful</h2><p class="sub">A scanner is only useful if it is hard to point at the wrong thing.</p></div>
+  <div class="sec-r">
+    <ul class="rows">
+      <li><b>Authorization gate</b><span>A typed confirmation before any scan, and every confirm or decline goes to a separate audit database.</span></li>
+      <li><b>Reserved ranges blocked</b><span>Documentation, link-local, multicast and similar ranges are refused. Hostnames and URLs are resolved first, so a name that points into one is refused too.</span></li>
+      <li><b>Inert active probes</b><span>XSS, SQL injection, SSRF and command-injection checks use harmless markers: a random string, a single quote, a known metadata URL, <code>echo &lt;token&gt;</code>.</span></li>
+      <li><b>Double-gated credential checks</b><span>Default-credential testing needs both a config setting and a command-line flag. Neither alone is enough.</span></li>
+      <li><b>Evidence stays local</b><span>Webhooks are https-only and send only the score, counts and titles. Ticket bodies leave evidence out by default.</span></li>
+      <li><b>Locked-down API</b><span>Binds to localhost unless told otherwise, needs a 16+ character token, and compares it in constant time.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec wrap" aria-labelledby="lmH">
+  <div class="sec-l"><p class="num mono">07</p><h2 id="lmH">Honest limits</h2></div>
+  <div class="sec-r">
+    <ul class="rows minus">
+      <li><b>False positives exist.</b><span>CVE matching is version-based. It reads a banner, which can be wrong or spoofed. The demo&rsquo;s test server announces a fake Apache version on purpose, and VulnForge believes it. Use the verification playbook.</span></li>
+      <li><b>Not benchmarked.</b><span>It has 118 automated tests but has not been compared with other scanners for accuracy or speed.</span></li>
+      <li><b>One resolution per scan.</b><span>The blocked-range check resolves DNS once. It protects against mistakes, not a hostile DNS server.</span></li>
+      <li><b>The CVE data is small by default.</b><span>A curated offline set ships with it. Broader coverage needs <code>cve-update</code>, which downloads from NVD and CISA KEV.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec wrap close" aria-labelledby="runH">
+  <div class="sec-l"><p class="num mono">08</p><h2 id="runH">Run it yourself</h2><p class="sub">On systems you own or have written permission to test. <code>--dry-run</code> shows what would run without scanning.</p></div>
+  <div class="sec-r">
+<pre class="code big mono" aria-label="Install and dry run"><code>git clone https://github.com/CyVenom/VulnForge.git
+cd VulnForge
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python vulnforge.py &lt;your-own-target&gt; --dry-run</code></pre>
+    <p class="foot">nmap is optional but recommended; without it, port scanning falls back to a basic TCP sweep. Windows commands shown; on Linux or macOS use <code>source .venv/bin/activate</code>.</p>
+    <div class="cta"><a class="btn primary" href="https://github.com/CyVenom/VulnForge" rel="noopener">View on GitHub</a></div>
+  </div>
+</section>
+</main>
+
+<footer class="foot-bar">
+  <div class="wrap foot-in"><span>VulnForge demo &middot; authorized security testing only</span><a href="https://github.com/CyVenom/VulnForge" rel="noopener">github.com/CyVenom/VulnForge</a></div>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
