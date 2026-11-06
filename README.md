@@ -66,6 +66,7 @@ app.js            the five interactive sections
 data.js           the two real scans (generated, see below)
 assets/           screenshot of the real HTML report
 tools/make_data.py   regenerates data.js from real reports
+tools/sample_server.py   the throwaway server the scans were run against
 og.png            share image
 ```
 
@@ -76,6 +77,25 @@ python -m http.server 8000
 ```
 
 Open http://localhost:8000. Press `Ctrl+C` to stop.
+
+## Reproduce the scans yourself
+
+`tools/sample_server.py` is the throwaway server I scanned. It is deliberately insecure (no security headers, a cookie with no flags, and a `Server` header that falsely claims Apache 2.4.49) and listens on `127.0.0.1` only.
+
+In one terminal:
+
+```
+python tools/sample_server.py
+```
+
+In another, from your VulnForge folder (with its virtual environment active):
+
+```
+python vulnforge.py http://127.0.0.1:8899/ -s web
+python vulnforge.py http://127.0.0.1:8899/ --profile quick -p 8899
+```
+
+You should get 10 findings with a risk score of 25 for the first, and 69 findings with a score of 100 for the second (the second needs nmap installed). Use `--profile quick` for the second: the default profile also runs nmap's `vuln` scripts and takes minutes. Both commands ask you to confirm authorization; answer `yes`, because it is your own machine. Only ever scan systems you own or have written permission to test.
 
 ## Refresh the data
 
